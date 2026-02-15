@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: mattermost-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: {{ psql_user }}
+      POSTGRES_PASSWORD: {{ psql_password }}
+      POSTGRES_DB: {{ psql_db }}
+    volumes:
+      - /srv/mattermost/db:/var/lib/postgresql/data
+    networks:
+      - mattermost-net
+
+  app:
+    image: mattermost/mattermost-team-edition:latest
+    container_name: mattermost-app
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      MM_SQLSETTINGS_DRIVERNAME: "postgres"
+      MM_SQLSETTINGS_DATASOURCE: "postgres://{{ psql_user }}:{{ psql_password }}@db:5432/{{ psql_db }}?sslmode=disable&connect_timeout=10"
+      MM_SERVICESETTINGS_SITEURL: "https://{{ domain }}"
+      MM_SERVICESETTINGS_ENABLEONLYADMINCREATETEAM: "false"
+    volumes:
+      - /srv/mattermost/data:/mattermost/data
+    ports:
+      - "8065:8065"
+    networks:
+      - mattermost-net
+
+networks:
+  mattermost-net:
+    driver: bridge

@@ -1,0 +1,80 @@
+- name: Harden SSH configuration
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^PermitRootLogin', line: 'PermitRootLogin no' }
+    - { regexp: '^PasswordAuthentication', line: 'PasswordAuthentication no' }
+    - { regexp: '^X11Forwarding', line: 'X11Forwarding no' }
+
+- name: Restart SSH
+  systemd:
+    name: ssh
+    state: restarted
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+    policy: deny
+
+- name: Allow SSH
+  ufw:
+    rule: limit
+    name: OpenSSH
+
+- name: Allow HTTP
+  ufw:
+    rule: allow
+    name: http
+
+- name: Allow HTTPS
+  ufw:
+    rule: allow
+    name: https
+
+- name: Apply kernel hardening
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: true
+  loop:
+    - { name: 'net.ipv4.ip_forward', value: 0 }
+    - { name: 'net.ipv4.conf.all.send_redirects', value: 0 }
+    - { name: 'net.ipv4.conf.default.send_redirects', value: 0 }
+    - { name: 'net.ipv4.conf.all.accept_source_route', value: 0 }
+    - { name: 'net.ipv4.conf.default.accept_source_route', value: 0 }
+    - { name: 'net.ipv4.conf.all.accept_redirects', value: 0 }
+    - { name: 'net.ipv4.conf.default.accept_redirects', value: 0 }
+    - { name: 'net.ipv4.conf.all.secure_redirects', value: 0 }
+    - { name: 'net.ipv4.conf.default.secure_redirects', value: 0 }
+    - { name: 'net.ipv4.conf.all.rp_filter', value: 1 }
+    - { name: 'net.ipv4.conf.default.rp_filter', value: 1 }
+    - { name: 'net.ipv4.tcp_syncookies', value: 1 }
+
+- name: Install AIDE, auditd, fail2ban
+  apt:
+    name:
+      - aide
+      - auditd
+      - fail2ban
+    state: present
+
+- name: Initialize AIDE database
+  command: aideinit
+  args:
+    creates: /var/lib/aide/aide.db.new
+
+- name: Ensure auditd service is running
+  systemd:
+    name: auditd
+    state: started
+    enabled: true
+
+- name: Ensure fail2ban service is running
+  systemd:
+    name: fail2ban
+    state: started
+    enabled: true

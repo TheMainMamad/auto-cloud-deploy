@@ -1,0 +1,3 @@
+.vscode
+.terraform*
+infra/ansible/vars

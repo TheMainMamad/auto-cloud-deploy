@@ -1,0 +1,8 @@
+- name: Deploy {{ app_name }}
+  docker_compose_v2:
+    project_src: ${SERVER_ROOT_PATH}/{{ app_name }}
+  register: output
+
+- name: Output of {{ app_name }}
+  debug:
+    var: output

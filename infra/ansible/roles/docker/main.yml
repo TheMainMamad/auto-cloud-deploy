@@ -1,0 +1,49 @@
+---
+- name: update repositories and installed packages
+  apt:
+    name: "*"
+    state: latest
+    update_cache: true
+
+- name: install required packages
+  apt:
+    name: "ca-certificates curl"
+    state: present
+
+- name: Ensure that the /etc/apt/keyrings dir exists
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    group: root
+    owner: root
+    mode: 0755
+  
+- name: Add Docker GPG key
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+
+- name: Add Docker repo
+  vars:
+    architecture_map:
+      aarch64: "arm64"
+      x86_64: "amd64"
+  apt_repository:
+    filename: docker
+    repo: 'deb [arch= signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu stable'
+
+- name: Install Docker stuff
+  apt:
+    update_cache: true
+    pkg:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+
+- name: Start Docker service
+  service:
+    name: docker
+    state: started
+    enabled: true

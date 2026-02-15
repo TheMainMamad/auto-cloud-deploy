@@ -1,0 +1,10 @@
+services:
+  marzban:
+    image: gozargah/marzban:latest
+    restart: unless-stopped
+    environment:
+      UVICORN_HOST: "0.0.0.0"
+      UVICORN_PORT: 8000
+    network_mode: host
+    volumes:
+      - /var/lib/marzban:/var/lib/marzban

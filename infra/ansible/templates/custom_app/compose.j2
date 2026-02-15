@@ -1,0 +1,24 @@
+services:
+  {{ app_name }}:
+    image: {{ app_image }}:{{ app_tag }}
+    {% if app_ports %}
+    ports:
+      {% for app_port in app_ports %}
+      - "{{ app_port }}:{{ app_port }}"
+      {% endfor %}
+    {% endif %}
+    {% if app_volumes %}
+    volumes:
+      {% for app_volume in app_volumes %}
+      - {{ app_volume }}:/{{ app_volume }}
+      {% endfor %}
+    {% endif %}
+    {% if app_command %}
+    command: {{ app_command }}
+    {% endif %}
+    networks:
+      - {{ app_name }}-net
+
+networks:
+  {{ app_name }}-net:
+    driver: bridge
