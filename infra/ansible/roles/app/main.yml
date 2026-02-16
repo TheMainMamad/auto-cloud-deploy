@@ -1,3 +1,11 @@
+- name: Copy {{ app_name }}
+  template:
+    src: "{{ app_name }}/compose.j2"
+    dest: "/opt/{{ app_name }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Deploy {{ app_name }}
   docker_compose_v2:
     project_src: ${SERVER_ROOT_PATH}/{{ app_name }}
