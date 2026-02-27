@@ -1,0 +1,5 @@
+all:
+  hosts:
+    abrak:
+      ansible_host: 185.226.117.133
+      ansible_user: ubuntu

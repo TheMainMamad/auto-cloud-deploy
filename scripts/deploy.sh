@@ -18,20 +18,20 @@ if ! [ -f "$VARS_FILE/main.yml" ]; then
 fi
 
 function help_message {
-    echo  "__   _  _  ____  __         ___  __     __   _  _  ____      ____  ____  ____  __     __  _  _  "
-    echo "/ _\ / )( \(_  _)/  \  ___  / __)(  )   /  \ / )( \(    \ ___(    \(  __)(  _ \(  )   /  \( \/ ) "
-    echo "/    \) \/ (  )( (  O )(___)( (__ / (_/\(  O )) \/ ( ) D ((___)) D ( ) _)  ) __// (_/\(  O ))  / "
-    echo "\_/\_/\____/ (__) \__/       \___)\____/ \__/ \____/(____/    (____/(____)(__)  \____/ \__/(__/  "
+    echo "   __   _  _  ____  __         ___  __     __   _  _  ____      ____  ____  ____  __     __  _  _  "
+    echo "  / _\ / )( \(_  _)/  \  ___  / __)(  )   /  \ / )( \(    \ ___(    \(  __)(  _ \(  )   /  \( \/ ) "
+    echo " /    \) \/ (  )( (  O )(___)( (__ / (_/\(  O )) \/ ( ) D ((___)) D ( ) _)  ) __// (_/\(  O ))  / "
+    echo " \_/\_/\____/ (__) \__/       \___)\____/ \__/ \____/(____/    (____/(____)(__)  \____/ \__/(__/  "
     echo ""
     echo "Version: v1.0-beta"
     echo "Repository: https://github.com/TheMainMamad/auto-cloud-deploy.git"
-    echo "Clouds: [arvancloud]"
+    echo "Clouds: [Arvancloud, Local(virtualbox)]"
     echo "Supported Dockerized Apps: ${SUPPORTED_APPS[@]}"
     echo "IaC: Terraform, Ansible"
     echo "Root PATH: $ROOT_PATH"
     echo "Ansible Vars file: $VARS_FILE"
     echo ""
-    echo ""
+    printf "\033[1;33m[!][!] Before running script make sure you filled .env file correctly. If not exist copy from .env.sample [!][!]\033[0m\n"
 }
 
 function set_variable {
@@ -105,23 +105,74 @@ all:
 EOF
 }
 
-function terraform_run {
-    export TF_VAR_api_key="$CLOUD_API_KEY"
-    export TF_VAR_abrak_name="$SERVER_NAME"
-    export TF_VAR_region="$REGION"
-    export TF_VAR_disk_size="$DISK_SIZE"
+function select_cloud {
+    echo "Select cloud provider:"
+    echo "1) Arvancloud"
+    echo "2) Virtualbox (Local)"
+    read -p "Enter the number corresponding to your choice: " cloud_choice
+    case "$cloud_choice" in
+        1)
+            export CLOUD_PROVIDER="arvancloud"
+        ;;
+        2)
+            export CLOUD_PROVIDER="virtualbox"
+        ;;
+        *)
+            echo "[-] Invalid choice. Please select a valid cloud provider."
+            exit 1
+        ;;
+    esac
+}
 
-    cd ${ROOT_PATH}/infra/terraform
+function get_arvan_ip {
+    export IP_ADDRESS=$(curl -4 -sS -H "Authorization: Apikey $1" \
+    "https://napi.arvancloud.ir/ecc/v1/regions/$2/servers/$3" \
+    | jq -r '.data.addresses
+            | to_entries
+            | .[].value[]
+            | select(.version=="4" and .is_public==true)
+            | .addr
+            ' | head -n1
+    )
+    echo $IP_ADDRESS
+}
+
+function resolve_vagrant_box_url() {
+  local api="https://app.vagrantup.com/api/v2/box/$1"
+
+  local url
+  url="$(curl -fsSL "$api" | jq -r '.current_version.providers[] | select(.name=="virtualbox") | .download_url' | head -n1)"
+  if [ -z "$url" ] || [ "$url" = "null" ]; then
+    echo "[!] No virtualbox provider found for box: $1" >&2
+    return 1
+  fi
+
+  return "$url"
+}
+
+function terraform_run {
+    source ${ROOT_PATH}/.env
+
+    cd ${ROOT_PATH}/infra/terraform/environment/${CLOUD_PROVIDER}
     terraform init
     terraform plan -out=tfplan
     terraform apply tfplan
-    IP=$(terraform output -raw abrak_ip || { echo "[!] Failed to get IP"; exit 1; })
+
+    INSTANCE_ID=$(terraform output -raw instance_id)
+    REGION=$(terraform output -raw region)
+    USER=$(terraform output -raw instance_username)
+
+    export IP="$(get_arvan_ip "$CLOUD_API_KEY" "$REGION" "$INSTANCE_ID")"
+
     echo "Server IP: $IP"
     create_inventory_file $IP
     cd ${ROOT_PATH}
 }
 
 function ansible_run {
+    echo "Add key host to known file ..."
+    ssh-keygen -R $IP
+    ssh-keyscan -H $IP >> ~/.ssh/known_hosts
     cd ${ROOT_PATH}/infra/ansible
     ansible-playbook -i inventory.yml playbook.yml
 }
@@ -130,6 +181,7 @@ function main {
     set -e
     help_message
     select_deployments
+    select_cloud
     terraform_run
     ansible_run
 }

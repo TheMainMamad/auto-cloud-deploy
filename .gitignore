@@ -1,3 +1,10 @@
 .vscode
 .terraform*
 infra/ansible/vars
+.env
+terraform.tfstate*
+sample.json
+.password
+*.log
+tfplan
+.DS_Store
